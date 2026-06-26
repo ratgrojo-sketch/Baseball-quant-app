@@ -91,3 +91,5 @@ export async function fetchRosterForGame(gamePk, onLog) {
   }
   return null;
 }
+// Agrega esto al final de RosterService.js
+export const REAL_FALLBACK_ROSTERS = {}; 
