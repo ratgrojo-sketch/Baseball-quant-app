@@ -46,3 +46,9 @@ export default function RosterStatusBanner({ roster, loading, onRefresh }) {
     </div>
   );
 }
+// src/components/RosterStatusBanner.jsx
+// Cambia la línea del sub para manejar fetchedAt nulo:
+
+const sub = roster.fetchedAt
+  ? `Últ. actualización: ${fmtAgo(roster.fetchedAt)}${isManual ? " · Fuente: ESPN/Rotowire" : ""}`
+  : "Datos cargados · Sin marca de tiempo";
