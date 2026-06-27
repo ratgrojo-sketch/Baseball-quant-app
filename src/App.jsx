@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { T, S, Ico } from "./tokens";
 import ScreenHoy        from "./screens/ScreenHoy";
+import ScreenSimulacion from "./screens/ScreenSimulacion";
 import ScreenResumen    from "./screens/ScreenResumen";
 import ScreenValue      from "./screens/ScreenValue";
 import ScreenProps      from "./screens/ScreenProps";
