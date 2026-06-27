@@ -1,4 +1,197 @@
 // ─────────────────────────────────────────────────────────
+// parseLiveFeedRoster — extrae pitchers/batters del feed/live
+// Útil cuando el boxscore aún no tiene lineup confirmado
+// ─────────────────────────────────────────────────────────
+function parseLiveFeedRoster(data, gamePk) {
+  const gameData = data?.gameData;
+  const players  = gameData?.players ?? {};   // keyed as "ID{playerId}"
+
+  const homeTeam = gameData?.teams?.home;
+  const awayTeam = gameData?.teams?.away;
+  if (!homeTeam || !awayTeam) return null;
+
+  // Probable pitchers from game data
+  const homeSPRaw = gameData?.probablePitchers?.home;
+  const awaySPRaw = gameData?.probablePitchers?.away;
+
+  function buildPitcherFromProbable(pitcherRef) {
+    if (!pitcherRef?.id) return null;
+    const p = players[`ID${pitcherRef.id}`];
+    return {
+      id:       pitcherRef.id,
+      name:     pitcherRef.fullName ?? p?.fullName ?? "TBD",
+      fullName: pitcherRef.fullName ?? p?.fullName ?? "TBD",
+      hand:     p?.pitchHand?.code ?? "R",
+      // Stats will come from PLAYER_DATABASE autocomplete
+      era: "--", fip: "--", xfip: "--", siera: "--",
+      kpct: "--", bbpct: "--", whip: "--", war: "--",
+      gs: 1, role: "SP",
+    };
+  }
+
+  const homeSP = buildPitcherFromProbable(homeSPRaw);
+  const awaySP = buildPitcherFromProbable(awaySPRaw);
+
+  // Build roster lists from players object
+  const homePitchers = [], homeBullpen = [], homeBatters = [];
+  const awayPitchers = [], awayBullpen = [], awayBatters = [];
+
+  Object.values(players).forEach((p) => {
+    const teamId  = p?.currentTeam?.id;
+    const isPitch = ["P"].includes(p?.primaryPosition?.abbreviation);
+    const isHome  = teamId === homeTeam.id;
+    const isAway  = teamId === awayTeam.id;
+    if (!isHome && !isAway) return;
+
+    const target = isHome
+      ? { pitchers: homePitchers, bullpen: homeBullpen, batters: homeBatters }
+      : { pitchers: awayPitchers, bullpen: awayBullpen, batters: awayBatters };
+
+    if (isPitch) {
+      const gs  = p?.stats?.pitching?.gamesStarted ?? 0;
+      const obj = {
+        id:    p.id, name: p.fullName, fullName: p.fullName,
+        hand:  p.pitchHand?.code ?? "R",
+        era:   p.stats?.pitching?.era   ?? "--",
+        whip:  p.stats?.pitching?.whip  ?? "--",
+        k9:    p.stats?.pitching?.strikeoutsPer9Inn ?? "--",
+        fip: "--", xfip: "--", siera: "--",
+        kpct: "--", bbpct: "--", war: "--",
+        gs, role: gs > 0 ? "SP" : "RP",
+        lob: "--",
+      };
+      if (gs > 0) target.pitchers.push(obj);
+      else        target.bullpen.push(obj);
+    } else {
+      target.batters.push({
+        id:       p.id,
+        name:     p.fullName?.split(" ").slice(-1)[0] ?? "?",
+        fullName: p.fullName ?? "?",
+        pos:      p.primaryPosition?.abbreviation ?? "--",
+        hand:     p.batSide?.code ?? "R",
+        avg:      p.stats?.hitting?.avg  ?? "---",
+        obp:      p.stats?.hitting?.obp  ?? "---",
+        slg:      p.stats?.hitting?.slg  ?? "---",
+        hr:       p.stats?.hitting?.homeRuns ?? 0,
+        rbi:      p.stats?.hitting?.rbi  ?? 0,
+        wrc: null, woba: "---",
+        ab:       p.stats?.hitting?.atBats ?? 0,
+        h:        p.stats?.hitting?.hits   ?? 0,
+      });
+    }
+  });
+
+  // Put probable SP first in the pitchers list
+  if (homeSP) {
+    const exists = homePitchers.find((p) => p.id === homeSP.id);
+    if (!exists) homePitchers.unshift(homeSP);
+    else homePitchers.splice(homePitchers.indexOf(exists), 1, homeSP);
+  }
+  if (awaySP) {
+    const exists = awayPitchers.find((p) => p.id === awaySP.id);
+    if (!exists) awayPitchers.unshift(awaySP);
+    else awayPitchers.splice(awayPitchers.indexOf(exists), 1, awaySP);
+  }
+
+  return {
+    home: {
+      abbr:       homeTeam.abbreviation ?? "---",
+      teamId:     homeTeam.id,
+      name:       homeTeam.name ?? "",
+      pitchers:   homePitchers,
+      bullpen:    homeBullpen,
+      lineup:     homeBatters,
+      probableSP: homeSP ?? homePitchers[0] ?? null,
+    },
+    away: {
+      abbr:       awayTeam.abbreviation ?? "---",
+      teamId:     awayTeam.id,
+      name:       awayTeam.name ?? "",
+      pitchers:   awayPitchers,
+      bullpen:    awayBullpen,
+      lineup:     awayBatters,
+      probableSP: awaySP ?? awayPitchers[0] ?? null,
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────
+// parseTeamRoster — extrae el roster 25-man de un equipo
+// Siempre disponible, no depende del juego
+// ─────────────────────────────────────────────────────────
+function parseTeamRoster(data, teamId, abbr, teamName, probableSPId = null) {
+  const roster    = data?.roster ?? [];
+  const pitchers  = [];
+  const bullpen   = [];
+  const lineup    = [];
+
+  roster.forEach((entry) => {
+    const p   = entry.person;
+    const pos = entry.position?.abbreviation ?? "--";
+    const isPitcher = ["P", "SP", "RP"].includes(pos) ||
+                      entry.position?.type === "Pitcher";
+
+    // Pull season stats if hydrated
+    const pitchStats  = p?.stats?.find(s => s.group?.displayName === "pitching")?.splits?.[0]?.stat ?? {};
+    const hitStats    = p?.stats?.find(s => s.group?.displayName === "hitting")?.splits?.[0]?.stat  ?? {};
+
+    if (isPitcher) {
+      const gs  = pitchStats.gamesStarted ?? 0;
+      const obj = {
+        id:       p.id,
+        name:     p.fullName ?? "?",
+        fullName: p.fullName ?? "?",
+        hand:     p.pitchHand?.code ?? "R",
+        era:      pitchStats.era   ?? "--",
+        fip:      "--", xfip: "--", siera: "--",
+        whip:     pitchStats.whip  ?? "--",
+        kpct:     "--", bbpct: "--", war: "--",
+        k9:       pitchStats.strikeoutsPer9Inn ?? "--",
+        gs, role: gs > 0 ? "SP" : "RP",
+        lob: "--",
+      };
+      if (gs > 0) pitchers.push(obj);
+      else        bullpen.push(obj);
+    } else {
+      lineup.push({
+        id:       p.id,
+        name:     p.fullName?.split(" ").slice(-1)[0] ?? "?",
+        fullName: p.fullName ?? "?",
+        pos,
+        hand:     p.batSide?.code ?? "R",
+        avg:      hitStats.avg ?? "---",
+        obp:      hitStats.obp ?? "---",
+        slg:      hitStats.slg ?? "---",
+        hr:       hitStats.homeRuns ?? 0,
+        rbi:      hitStats.rbi      ?? 0,
+        wrc:      null,
+        woba:     "---",
+        ab:       hitStats.atBats ?? 0,
+        h:        hitStats.hits   ?? 0,
+      });
+    }
+  });
+
+  // Sort pitchers: probable SP first
+  pitchers.sort((a, b) => {
+    if (probableSPId) {
+      if (a.id === probableSPId) return -1;
+      if (b.id === probableSPId) return 1;
+    }
+    return (b.gs ?? 0) - (a.gs ?? 0);
+  });
+
+  return {
+    abbr,
+    teamId,
+    name:       teamName,
+    pitchers,
+    bullpen,
+    lineup,
+    probableSP: pitchers[0] ?? null,
+  };
+}
+// ─────────────────────────────────────────────────────────
 // NUEVO: fetchRosterForGame con 4 estrategias de fallback
 // Estrategia 1: /game/{pk}/boxscore   → lineup confirmado (post 2h pre-game)
 // Estrategia 2: /game/{pk}/feed/live  → datos en vivo o pre-game
