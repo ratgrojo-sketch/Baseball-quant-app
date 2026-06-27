@@ -36,7 +36,7 @@ function PitcherBlock({ label, teamRoster, data, onChange }) {
     if (!player) { onChange(emptyP()); return; }
     onChange({
       playerId: player.id,
-      name:  player.fullName || player.name,
+      name:  player.fullName || player.name || "",
       hand:  player.hand  || "R",
       era:   player.era   || "",
       fip:   player.fip   || "",
@@ -57,8 +57,10 @@ function PitcherBlock({ label, teamRoster, data, onChange }) {
       <div style={{ marginBottom: 10 }}>
         <div style={S.lbl}>Pitcher Abridor</div>
         <PlayerCombobox
-          players={pitchers} value={data.playerId} onChange={handleSelect}
-          placeholder={pitchers.length ? `${pitchers.length} pitchers disponibles` : "Sin roster"}
+          players={pitchers}
+          value={data.playerId}
+          onChange={handleSelect}
+          placeholder={pitchers.length ? `${pitchers.length} pitchers disponibles` : "Sin roster — ingresa manualmente"}
           type="pitcher"
         />
       </div>
@@ -109,27 +111,39 @@ function LineupBlock({ label, teamRoster, lineup, onChange }) {
         name:  player.fullName || player.name,
         pos:   player.pos  || POSITIONS[idx] || "DH",
         hand:  player.hand || "R",
-        avg:   player.avg,  obp:  player.obp,
-        slg:   player.slg,  wrc:  player.wrc,
-        woba:  player.woba, hr:   player.hr,   rbi: player.rbi,
+        avg:   player.avg,
+        obp:   player.obp,
+        slg:   player.slg,
+        wrc:   player.wrc,
+        woba:  player.woba,
+        hr:    player.hr,
+        rbi:   player.rbi,
       };
     }
     onChange(next);
   };
 
   const setField = (i, k, v) => {
-    const n = [...lineup]; n[i] = { ...n[i], [k]: v }; onChange(n);
+    const n = [...lineup];
+    n[i] = { ...n[i], [k]: v };
+    onChange(n);
   };
 
   return (
-    <Collapsible title={label} sub={`${filled}/9 bateadores${batters.length ? ` · ${batters.length} en roster` : ""}`}>
+    <Collapsible
+      title={label}
+      sub={`${filled}/9 bateadores${batters.length ? ` · ${batters.length} en roster` : ""}`}
+    >
       {batters.length > 0 && filled === 0 && (
         <button onClick={() => {
           const next = batters.slice(0, 9).map((p, i) => ({
-            playerId: p.id, name: p.fullName || p.name,
-            pos: p.pos || POSITIONS[i] || "DH", hand: p.hand || "R",
-            avg: p.avg, obp: p.obp, slg: p.slg,
-            wrc: p.wrc, woba: p.woba, hr: p.hr, rbi: p.rbi,
+            playerId: p.id,
+            name:  p.fullName || p.name,
+            pos:   p.pos || POSITIONS[i] || "DH",
+            hand:  p.hand || "R",
+            avg:   p.avg,  obp:  p.obp,
+            slg:   p.slg,  wrc:  p.wrc,
+            woba:  p.woba, hr:   p.hr,  rbi: p.rbi,
           }));
           while (next.length < 9) next.push({ name: "", pos: POSITIONS[next.length] || "DH", hand: "R" });
           onChange(next);
@@ -144,7 +158,8 @@ function LineupBlock({ label, teamRoster, lineup, onChange }) {
             <span style={{ fontSize: 13, color: T.amber, fontWeight: 700, minWidth: 18 }}>{i + 1}</span>
             <div style={{ flex: 1 }}>
               <PlayerCombobox
-                players={batters} value={p.playerId}
+                players={batters}
+                value={p.playerId}
                 onChange={(pl) => handleSelect(i, pl)}
                 placeholder={batters.length ? `Bateador ${i + 1}` : "Sin roster"}
                 type="batter"
@@ -155,15 +170,21 @@ function LineupBlock({ label, teamRoster, lineup, onChange }) {
             <div style={{ display: "flex", gap: 8, paddingLeft: 26 }}>
               <div style={{ flex: 1 }}>
                 <div style={S.lbl}>POS</div>
-                <select style={{ ...S.select, padding: "6px 8px", fontSize: 12 }}
-                  value={p.pos || "DH"} onChange={(e) => setField(i, "pos", e.target.value)}>
+                <select
+                  style={{ ...S.select, padding: "6px 8px", fontSize: 12 }}
+                  value={p.pos || "DH"}
+                  onChange={(e) => setField(i, "pos", e.target.value)}
+                >
                   {POSITIONS.map((pos) => <option key={pos}>{pos}</option>)}
                 </select>
               </div>
               <div style={{ width: 56 }}>
                 <div style={S.lbl}>MANO</div>
-                <select style={{ ...S.select, padding: "6px 6px", fontSize: 12 }}
-                  value={p.hand || "R"} onChange={(e) => setField(i, "hand", e.target.value)}>
+                <select
+                  style={{ ...S.select, padding: "6px 6px", fontSize: 12 }}
+                  value={p.hand || "R"}
+                  onChange={(e) => setField(i, "hand", e.target.value)}
+                >
                   {HANDS.map((h) => <option key={h}>{h}</option>)}
                 </select>
               </div>
@@ -202,7 +223,7 @@ function BullpenBlock({ label, teamRoster, data, onChange }) {
                                   alignItems: "center", padding: "6px 0",
                                   borderBottom: `1px solid ${T.border}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ ...S.pill(r.role==="CL"?T.red:r.role==="SU"?T.amber:T.muted), fontSize: 9 }}>
+                <span style={{ ...S.pill(r.role === "CL" ? T.red : r.role === "SU" ? T.amber : T.muted), fontSize: 9 }}>
                   {r.role}
                 </span>
                 <span style={{ fontSize: 12, color: T.text }}>{r.name}</span>
@@ -237,13 +258,14 @@ function BullpenBlock({ label, teamRoster, data, onChange }) {
               flex: 1, padding: "10px 0", borderRadius: 8, border: "none",
               cursor: "pointer", fontSize: 15, fontWeight: 700,
               background: (data.fatigue ?? 0) === f
-                ? [T.green, T.amber, T.orange, T.red][f] : T.raised,
+                ? [T.green, T.amber, T.orange, T.red][f]
+                : T.raised,
               color: (data.fatigue ?? 0) === f ? "#000" : T.muted,
             }}>{f}</button>
           ))}
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          {["Fresco","Leve","Cansado","Agotado"].map((l, i) => (
+          {["Fresco", "Leve", "Cansado", "Agotado"].map((l, i) => (
             <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 9, color: T.textDim }}>{l}</div>
           ))}
         </div>
@@ -270,7 +292,7 @@ export default function ScreenSimulacion({ selectedGame, onSimulate }) {
     if (cacheRef.current[pk]) { setRoster(cacheRef.current[pk]); return; }
     setRosterLoading(true);
     setRosterLogs([]);
-    const addLog = (e) => setRosterLogs((p) => [...p, e]);
+    const addLog = (e) => setRosterLogs((prev) => [...prev, e]);
     const r = await fetchRosterForGame(game.id, addLog);
     if (r) cacheRef.current[pk] = r;
     setRoster(r);
@@ -286,15 +308,15 @@ export default function ScreenSimulacion({ selectedGame, onSimulate }) {
     const hSP = roster.home?.probableSP;
     const aSP = roster.away?.probableSP;
     if (hSP && !homeSP.name) setHomeSP({
-      playerId: hSP.id, name: hSP.name, hand: hSP.hand || "R",
-      era: hSP.era || "", fip: hSP.fip || "", xfip: hSP.xfip || "",
-      siera: hSP.siera || "", kpct: hSP.kpct || "",
+      playerId: hSP.id, name: hSP.name || hSP.fullName || "",
+      hand: hSP.hand || "R", era: hSP.era || "", fip: hSP.fip || "",
+      xfip: hSP.xfip || "", siera: hSP.siera || "", kpct: hSP.kpct || "",
       bbpct: hSP.bbpct || "", whip: hSP.whip || "", war: hSP.war || "",
     });
     if (aSP && !awaySP.name) setAwaySP({
-      playerId: aSP.id, name: aSP.name, hand: aSP.hand || "R",
-      era: aSP.era || "", fip: aSP.fip || "", xfip: aSP.xfip || "",
-      siera: aSP.siera || "", kpct: aSP.kpct || "",
+      playerId: aSP.id, name: aSP.name || aSP.fullName || "",
+      hand: aSP.hand || "R", era: aSP.era || "", fip: aSP.fip || "",
+      xfip: aSP.xfip || "", siera: aSP.siera || "", kpct: aSP.kpct || "",
       bbpct: aSP.bbpct || "", whip: aSP.whip || "", war: aSP.war || "",
     });
     const hBP = (roster.home?.bullpen || []).filter((r) => r.era && r.era !== "--");
@@ -307,6 +329,15 @@ export default function ScreenSimulacion({ selectedGame, onSimulate }) {
     }));
   }, [roster]);
 
+  const handleRefresh = () => {
+    const pk = String(selectedGame.id);
+    delete cacheRef.current[pk];
+    setRoster(null);
+    setHomeSP(emptyP()); setAwaySP(emptyP());
+    setHomeBP(emptyBP()); setAwayBP(emptyBP());
+    loadRoster(selectedGame);
+  };
+
   const handleSim = () => {
     const hL = calcLambda(awaySP, awayBP);
     const aL = calcLambda(homeSP, homeBP);
@@ -318,18 +349,9 @@ export default function ScreenSimulacion({ selectedGame, onSimulate }) {
     });
   };
 
-  const handleRefresh = () => {
-    const pk = String(selectedGame.id);
-    delete cacheRef.current[pk];
-    setRoster(null);
-    setHomeSP(emptyP()); setAwaySP(emptyP());
-    setHomeBP(emptyBP()); setAwayBP(emptyBP());
-    loadRoster(selectedGame);
-  };
-
   if (!selectedGame) return (
-    <div style={{ ...S.cardN, margin: "20px 12px", textAlign: "center", padding: 40,
-                  color: T.muted, fontSize: 13 }}>
+    <div style={{ ...S.cardN, margin: "20px 12px", textAlign: "center",
+                  padding: 40, color: T.muted, fontSize: 13 }}>
       ← Ve a <strong style={{ color: T.amber }}>Hoy</strong> y selecciona un juego.
     </div>
   );
@@ -337,26 +359,45 @@ export default function ScreenSimulacion({ selectedGame, onSimulate }) {
   return (
     <div>
       <div style={S.sh}>{selectedGame.away} @ {selectedGame.home} · {selectedGame.gameTime}</div>
-      <RosterStatusBanner roster={roster} loading={rosterLoading} onRefresh={handleRefresh} />
-      {rosterLogs.length > 0 && <DiagPanel logs={rosterLogs} source={roster?.source || "loading"} />}
+
+      <RosterStatusBanner
+        roster={roster}
+        loading={rosterLoading}
+        onRefresh={handleRefresh}
+      />
+      {rosterLogs.length > 0 && (
+        <DiagPanel logs={rosterLogs} source={roster?.source || "loading"} />
+      )}
 
       <div style={S.sh}>SP ABRIDORES</div>
-      <PitcherBlock label={`SP Local · ${selectedGame.home}`}
-        teamRoster={roster?.home} data={homeSP} onChange={setHomeSP} />
-      <PitcherBlock label={`SP Visita · ${selectedGame.away}`}
-        teamRoster={roster?.away} data={awaySP} onChange={setAwaySP} />
+      <PitcherBlock
+        label={`SP Local · ${selectedGame.home}`}
+        teamRoster={roster?.home} data={homeSP} onChange={setHomeSP}
+      />
+      <PitcherBlock
+        label={`SP Visita · ${selectedGame.away}`}
+        teamRoster={roster?.away} data={awaySP} onChange={setAwaySP}
+      />
 
       <div style={S.sh}>LINEUPS</div>
-      <LineupBlock label={`Lineup Local · ${selectedGame.home}`}
-        teamRoster={roster?.home} lineup={homeLineup} onChange={setHomeLineup} />
-      <LineupBlock label={`Lineup Visita · ${selectedGame.away}`}
-        teamRoster={roster?.away} lineup={awayLineup} onChange={setAwayLineup} />
+      <LineupBlock
+        label={`Lineup Local · ${selectedGame.home}`}
+        teamRoster={roster?.home} lineup={homeLineup} onChange={setHomeLineup}
+      />
+      <LineupBlock
+        label={`Lineup Visita · ${selectedGame.away}`}
+        teamRoster={roster?.away} lineup={awayLineup} onChange={setAwayLineup}
+      />
 
       <div style={S.sh}>BULLPEN</div>
-      <BullpenBlock label={`Bullpen Local · ${selectedGame.home}`}
-        teamRoster={roster?.home} data={homeBP} onChange={setHomeBP} />
-      <BullpenBlock label={`Bullpen Visita · ${selectedGame.away}`}
-        teamRoster={roster?.away} data={awayBP} onChange={setAwayBP} />
+      <BullpenBlock
+        label={`Bullpen Local · ${selectedGame.home}`}
+        teamRoster={roster?.home} data={homeBP} onChange={setHomeBP}
+      />
+      <BullpenBlock
+        label={`Bullpen Visita · ${selectedGame.away}`}
+        teamRoster={roster?.away} data={awayBP} onChange={setAwayBP}
+      />
 
       <div style={{ padding: "16px 12px 8px" }}>
         <button style={S.btn(T.amber)} onClick={handleSim}>
@@ -365,4 +406,4 @@ export default function ScreenSimulacion({ selectedGame, onSimulate }) {
       </div>
     </div>
   );
-                     }
+                  }
